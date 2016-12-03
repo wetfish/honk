@@ -29,21 +29,7 @@ def get_hank_home():
 
 HANK_HOME = get_hank_home()
 
-API_KEYS = {}
-def set_api_secrets(fname='api_keys.txt'):
-    infile = open(HANK_HOME + os.sep + fname)
-    for line in infile.readlines():
-        line = line.strip()
-        if line == '' or line.startswith('#'):
-            pass
-        elif ':' in line:
-            i, j = [k.strip() for k in line.split(':',1)]
-            API_KEYS[i] = j
-        else:
-            raise("bad api key line: {}".format(line))
-set_api_secrets()
-# remember to gitignore the api keys so they aren't public (anymore)
-
+# api keys and other passwords are in SQLite hank.db table 'auth'
 SQLITE_DB = HANK_HOME + "/hank.db"
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, " \
     "like Gecko) Chrome/47.0.2526.106 Safari/537.36"
@@ -284,13 +270,17 @@ def run_co(srv, chn, rest):
         (urllib.quote(lang), urllib.quote(code)))
 
 def run_ys(srv, chn, q):
+    rows = db_query('select secret from auth where key = ?', 'youtube')
+    if len(rows) < 1:
+        return
+    secret = rows[0][0]
     url = "https://www.youtube.com/results?" + \
         urllib.urlencode({ "search_query": qq(q) })
     run_curl(srv, chn, url, """grep -Po '(?<=watch\?v=).{11}' | sort | """ \
         """uniq | shuf -n1 | xargs -n1 -I@ """ \
         """curl -s 'https://content.googleapis.com/youtube/v3/""" \
         """commentThreads?part=snippet&maxResults=100&videoId=@&textFormat=""" \
-        """plainText&key=""" + API_KEYS['youtube'] + """' | """ \
+        """plainText&key=""" + secret + """' | """ \
         """grep '"textDisplay"' | cut -d: -f2- | cut -c2- | sed 's/,$//' | """ \
         """egrep -iv '(\+|#|@|:|vid|record|upload|stream|youtube|thank| """ \
         """watch|download)' | """ \
@@ -352,6 +342,10 @@ def run_gif(srv, chn, q):
         """tr ' ' '+'""", "Found " + qq(q) + ": %s")
 
 def run_write(srv, chn, q):
+    rows = db_query('select secret from auth where key = ?', 'imgur_client_id')
+    if len(rows) < 1:
+        return
+    secret = rows[0][0]
     url = "http://www.cs.toronto.edu/~graves/handwriting.cgi?" + \
         urllib.urlencode({
             "text": q,
@@ -362,7 +356,7 @@ def run_write(srv, chn, q):
     run_curl(srv, chn, url,
         """grep -Po '(?<=data:image/jpeg;base64,)[^"]+' | base64 -d | """ \
         """curl -s --compressed -XPOST -F 'image=@-' """ \
-        """-H 'Authorization: Client-ID """ + API_KEYS['imgur_client_id'] + """' """ \
+        """-H 'Authorization: Client-ID """ + secret + """' """ \
         """'https://api.imgur.com/3/image' | grep -Po '(?<="id":")[^"]+' | """ \
         """xargs -rn1 printf 'http://i.imgur.com/%s.png'""", "%s :)")
 
@@ -387,6 +381,10 @@ def run_tw(srv, chn, q, shuf=False):
         """recode -f html..ascii | """ + shuf_or_head + """ -n1""", "%s")
 
 def run_twr(srv, chn, q, shuf=False):
+    rows = db_query('select secret from auth where key = ?', 'imgur_client_id')
+    if len(rows) < 1:
+        return
+    secret = rows[0][0]
     url = "https://twitter.com/search?" + \
         urllib.urlencode({
             "f": "realtime",
@@ -403,7 +401,7 @@ def run_twr(srv, chn, q, shuf=False):
         """xargs -rn1 curl -s | """ \
         """grep -Po '(?<=data:image/jpeg;base64,)[^"]+' | base64 -d | """ \
         """curl -s --compressed -XPOST -F 'image=@-' """ \
-        """-H 'Authorization: Client-ID """ + API_KEYS['imgur_client_id'] + """' """ \
+        """-H 'Authorization: Client-ID """ + secret + """' """ \
         """'https://api.imgur.com/3/image' | grep -Po '(?<="id":")[^"]+' | """ \
         """xargs -rn1 printf 'http://i.imgur.com/%s.png'""", "%s :0")
 
