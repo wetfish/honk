@@ -1,7 +1,7 @@
+#!/usr/bin/env python
 # encoding=utf8
 import sys
 import base64
-import collections
 import hashlib
 import hmac
 import json
@@ -28,9 +28,8 @@ def get_hank_home():
     return os.path.dirname(os.path.realpath(fname))
 
 HANK_HOME = get_hank_home()
-IMGUR_CLIENT_ID = "fe0966af56cc0f0"
-IMGUR_CLIENT_SECRET = "cf14e4b09a9ae536ce21fc235e2f310fc97968f2"
-YOUTUBE_API_KEY = "AIzaSyAiYfOvXjvhwUFZ1VPn696guJcd2TJ-Lek"
+
+# api keys and other passwords are in SQLite hank.db table 'auth'
 SQLITE_DB = HANK_HOME + "/hank.db"
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, " \
     "like Gecko) Chrome/47.0.2526.106 Safari/537.36"
@@ -271,13 +270,17 @@ def run_co(srv, chn, rest):
         (urllib.quote(lang), urllib.quote(code)))
 
 def run_ys(srv, chn, q):
+    rows = db_query('select secret from auth where key = ?', 'youtube')
+    if len(rows) < 1:
+        return
+    secret = rows[0][0]
     url = "https://www.youtube.com/results?" + \
         urllib.urlencode({ "search_query": qq(q) })
     run_curl(srv, chn, url, """grep -Po '(?<=watch\?v=).{11}' | sort | """ \
         """uniq | shuf -n1 | xargs -n1 -I@ """ \
         """curl -s 'https://content.googleapis.com/youtube/v3/""" \
         """commentThreads?part=snippet&maxResults=100&videoId=@&textFormat=""" \
-        """plainText&key=""" + YOUTUBE_API_KEY + """' | """ \
+        """plainText&key=""" + secret + """' | """ \
         """grep '"textDisplay"' | cut -d: -f2- | cut -c2- | sed 's/,$//' | """ \
         """egrep -iv '(\+|#|@|:|vid|record|upload|stream|youtube|thank| """ \
         """watch|download)' | """ \
@@ -339,6 +342,10 @@ def run_gif(srv, chn, q):
         """tr ' ' '+'""", "Found " + qq(q) + ": %s")
 
 def run_write(srv, chn, q):
+    rows = db_query('select secret from auth where key = ?', 'imgur_client_id')
+    if len(rows) < 1:
+        return
+    secret = rows[0][0]
     url = "http://www.cs.toronto.edu/~graves/handwriting.cgi?" + \
         urllib.urlencode({
             "text": q,
@@ -349,7 +356,7 @@ def run_write(srv, chn, q):
     run_curl(srv, chn, url,
         """grep -Po '(?<=data:image/jpeg;base64,)[^"]+' | base64 -d | """ \
         """curl -s --compressed -XPOST -F 'image=@-' """ \
-        """-H 'Authorization: Client-ID """ + IMGUR_CLIENT_ID + """' """ \
+        """-H 'Authorization: Client-ID """ + secret + """' """ \
         """'https://api.imgur.com/3/image' | grep -Po '(?<="id":")[^"]+' | """ \
         """xargs -rn1 printf 'http://i.imgur.com/%s.png'""", "%s :)")
 
@@ -374,6 +381,10 @@ def run_tw(srv, chn, q, shuf=False):
         """recode -f html..ascii | """ + shuf_or_head + """ -n1""", "%s")
 
 def run_twr(srv, chn, q, shuf=False):
+    rows = db_query('select secret from auth where key = ?', 'imgur_client_id')
+    if len(rows) < 1:
+        return
+    secret = rows[0][0]
     url = "https://twitter.com/search?" + \
         urllib.urlencode({
             "f": "realtime",
@@ -390,7 +401,7 @@ def run_twr(srv, chn, q, shuf=False):
         """xargs -rn1 curl -s | """ \
         """grep -Po '(?<=data:image/jpeg;base64,)[^"]+' | base64 -d | """ \
         """curl -s --compressed -XPOST -F 'image=@-' """ \
-        """-H 'Authorization: Client-ID """ + IMGUR_CLIENT_ID + """' """ \
+        """-H 'Authorization: Client-ID """ + secret + """' """ \
         """'https://api.imgur.com/3/image' | grep -Po '(?<="id":")[^"]+' | """ \
         """xargs -rn1 printf 'http://i.imgur.com/%s.png'""", "%s :0")
 
@@ -544,4 +555,4 @@ def run_proc_cb(udata, command, rc, stdout, stderr):
         curl_stderr = ""
     return weechat.WEECHAT_RC_OK
 
-weechat.hook_signal("*,irc_in2_privmsg", "msg_cb", "");
+weechat.hook_signal("*,irc_in2_privmsg", "msg_cb", "")
