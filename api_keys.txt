@@ -1,0 +1,6 @@
+# list of secrets that shouldn't be public in the git repo
+# API keys that you probably paid for, or are tracable back to you
+
+imgur_client_id: fe0966af56cc0f0
+imgur_client_secret: cf14e4b09a9ae536ce21fc235e2f310fc97968f2
+youtube: AIzaSyAiYfOvXjvhwUFZ1VPn696guJcd2TJ-Lek
