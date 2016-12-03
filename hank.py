@@ -1,7 +1,7 @@
+#!/usr/bin/env python
 # encoding=utf8
 import sys
 import base64
-import collections
 import hashlib
 import hmac
 import json
@@ -28,9 +28,22 @@ def get_hank_home():
     return os.path.dirname(os.path.realpath(fname))
 
 HANK_HOME = get_hank_home()
-IMGUR_CLIENT_ID = "fe0966af56cc0f0"
-IMGUR_CLIENT_SECRET = "cf14e4b09a9ae536ce21fc235e2f310fc97968f2"
-YOUTUBE_API_KEY = "AIzaSyAiYfOvXjvhwUFZ1VPn696guJcd2TJ-Lek"
+
+API_KEYS = {}
+def set_api_secrets(fname='api_keys.txt'):
+    infile = open(HANK_HOME + os.sep + fname)
+    for line in infile.readlines():
+        line = line.strip()
+        if line == '' or line.startswith('#'):
+            pass
+        elif ':' in line:
+            i, j = [k.strip() for k in line.split(':',1)]
+            API_KEYS[i] = j
+        else:
+            raise("bad api key line: {}".format(line))
+set_api_secrets()
+# remember to gitignore the api keys so they aren't public (anymore)
+
 SQLITE_DB = HANK_HOME + "/hank.db"
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, " \
     "like Gecko) Chrome/47.0.2526.106 Safari/537.36"
@@ -277,7 +290,7 @@ def run_ys(srv, chn, q):
         """uniq | shuf -n1 | xargs -n1 -I@ """ \
         """curl -s 'https://content.googleapis.com/youtube/v3/""" \
         """commentThreads?part=snippet&maxResults=100&videoId=@&textFormat=""" \
-        """plainText&key=""" + YOUTUBE_API_KEY + """' | """ \
+        """plainText&key=""" + API_KEYS['youtube'] + """' | """ \
         """grep '"textDisplay"' | cut -d: -f2- | cut -c2- | sed 's/,$//' | """ \
         """egrep -iv '(\+|#|@|:|vid|record|upload|stream|youtube|thank| """ \
         """watch|download)' | """ \
@@ -349,7 +362,7 @@ def run_write(srv, chn, q):
     run_curl(srv, chn, url,
         """grep -Po '(?<=data:image/jpeg;base64,)[^"]+' | base64 -d | """ \
         """curl -s --compressed -XPOST -F 'image=@-' """ \
-        """-H 'Authorization: Client-ID """ + IMGUR_CLIENT_ID + """' """ \
+        """-H 'Authorization: Client-ID """ + API_KEYS['imgur_client_id'] + """' """ \
         """'https://api.imgur.com/3/image' | grep -Po '(?<="id":")[^"]+' | """ \
         """xargs -rn1 printf 'http://i.imgur.com/%s.png'""", "%s :)")
 
@@ -390,7 +403,7 @@ def run_twr(srv, chn, q, shuf=False):
         """xargs -rn1 curl -s | """ \
         """grep -Po '(?<=data:image/jpeg;base64,)[^"]+' | base64 -d | """ \
         """curl -s --compressed -XPOST -F 'image=@-' """ \
-        """-H 'Authorization: Client-ID """ + IMGUR_CLIENT_ID + """' """ \
+        """-H 'Authorization: Client-ID """ + API_KEYS['imgur_client_id'] + """' """ \
         """'https://api.imgur.com/3/image' | grep -Po '(?<="id":")[^"]+' | """ \
         """xargs -rn1 printf 'http://i.imgur.com/%s.png'""", "%s :0")
 
@@ -544,4 +557,4 @@ def run_proc_cb(udata, command, rc, stdout, stderr):
         curl_stderr = ""
     return weechat.WEECHAT_RC_OK
 
-weechat.hook_signal("*,irc_in2_privmsg", "msg_cb", "");
+weechat.hook_signal("*,irc_in2_privmsg", "msg_cb", "")
